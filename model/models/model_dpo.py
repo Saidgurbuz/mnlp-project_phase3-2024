@@ -59,11 +59,12 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
          
         self.device = device
         self.pretrained_model = self.pretrained_model.to(device)
-
+        self.pipe = False
         # check if there are enabled gradients in the model and disable gradient flow 
         for param in self.pretrained_model.parameters():
             if param.requires_grad:
                 param.requires_grad = False
+
 
         # custom_kwargs, _, _ = self._split_kwargs(kwargs)
         # self._init_weights()
@@ -407,17 +408,42 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
         # TODO: Please implement the prediction step that generates the prediction of the given MCQA question
         # ======================================================================
 
-        # HuggingFace pipeline: https://huggingface.co/docs/transformers/main_classes/pipelines. 
-        # There exists question-ansewring mode, but i am not sure if Phi-3 supports this.
-        ...  # TODO: This might be for Milestone 3! Implement this after discussing with team.
-
         # You need to return one letter prediction for each question.
         # ======================================================================
-        raise NotImplementedError
         ########################################################################
+        if not self.pipe:
+            self.pipe = pipeline(
+                "text-generation",
+                model=self.pretrained_model,
+                tokenizer=tokenizer,
+                framework='pt'
+            )
+
+        output_dict = {"preds": []}
+        generation_args = {
+            "max_new_tokens": 512,
+            "return_full_text": False,
+            "temperature": 0.0,
+            "do_sample": False,
+        }
+
+        # Define the initial example, we can do few-shot here if we want
+        messages = [
+        ]
+
+        for question in batch["question"]:
+            messages.append({"role": "user", "content": question})
+            prompt_text = "\n\n".join([msg['content'] for msg in messages if msg['role'] == "user"])
+
+            result = self.pipe(prompt_text, **generation_args)
+            generated_text = result[0]['generated_text']
+
+            correct_option = generated_text.split('The correct option is: ')[-1].strip()
+            output_dict["preds"].append(correct_option)
+
+            messages.pop()
 
         return output_dict
-
 
 class AutoDPOModelForSeq2SeqLM(PreTrainedModelWrapper):
     r"""
