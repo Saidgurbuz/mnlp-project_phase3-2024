@@ -387,64 +387,57 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
         return output_dict
 
     def prediction_step_mcqa(self, batch, tokenizer):
-        """
-        Computes the mcqa prediction of the given question.
+            """
+            Computes the mcqa prediction of the given question.
 
-        Args:
-            batch (`dict` of `list`):
-                A dictionary containing the input mcqa data for the DPO model.
-                The data format is as follows:
-                {
-                    "question": List[str], each <str> contains the question body and the choices
-                    "answer": List[str], each <str> is a single letter representing the correct answer
-                }
-            tokenizer (`PreTrainedTokenizerBase`): The tokenizer used to tokenize the input questions.
-        Returns:
-            output_dict (`dict`): A dictionary containing the model predictions given input questions.
-        """
-        output_dict = {"preds": []}
+            Args:
+                batch (dict of list):
+                    A dictionary containing the input mcqa data for the DPO model.
+                    The data format is as follows:
+                    {
+                        "question": List[str], each <str> contains the question body and the choices
+                        "answer": List[str], each <str> is a single letter representing the correct answer
+                    }
+                tokenizer (PreTrainedTokenizerBase): The tokenizer used to tokenize the input questions.
+            Returns:
+                output_dict (dict): A dictionary containing the model predictions given input questions.
+            """
+            output_dict = {"preds": []}
 
-        ########################################################################
-        # TODO: Please implement the prediction step that generates the prediction of the given MCQA question
-        # ======================================================================
-
-        # You need to return one letter prediction for each question.
-        # ======================================================================
-        ########################################################################
-        if not self.pipe:
-            self.pipe = pipeline(
-                "text-generation",
-                model=self.pretrained_model,
-                tokenizer=tokenizer,
-                framework='pt'
+            ########################################################################
+            # TODO: Please implement the prediction step that generates the prediction of the given MCQA question
+            # ======================================================================
+            pipe = pipeline(
+            "text-generation",
+            model=self.pretrained_model,
+            tokenizer=tokenizer,
             )
+            output_dict = {"preds": []}
+            generation_args = {
+                "max_new_tokens": 512,
+                "return_full_text": False,
+                "temperature": 0.0,
+                "do_sample": False,
+            }
 
-        output_dict = {"preds": []}
-        generation_args = {
-            "max_new_tokens": 512,
-            "return_full_text": False,
-            "temperature": 0.0,
-            "do_sample": False,
-        }
+            for question in batch["question"]:
+                messages = [{"role": "user", "content": question + " "}]
+                result = pipe(messages, **generation_args)
+                generated_text = result[0]['generated_text']
+                print(generated_text)
 
-        # Define the initial example, we can do few-shot here if we want
-        messages = [
-        ]
+                correct_option = generated_text[1]
+                print(correct_option)
+                output_dict["preds"].append(correct_option)
 
-        for question in batch["question"]:
-            messages.append({"role": "user", "content": question})
-            prompt_text = "\n\n".join([msg['content'] for msg in messages if msg['role'] == "user"])
+                messages.pop()
 
-            result = self.pipe(prompt_text, **generation_args)
-            generated_text = result[0]['generated_text']
+            return output_dict
+            # You need to return one letter prediction for each question.
+            # ======================================================================
+            ########################################################################
 
-            correct_option = generated_text.split('The correct option is: ')[-1].strip()
-            output_dict["preds"].append(correct_option)
-
-            messages.pop()
-
-        return output_dict
-
+    
 class AutoDPOModelForSeq2SeqLM(PreTrainedModelWrapper):
     r"""
     A seq2seq model with support for custom modules in addition to the transformer model.
