@@ -7,6 +7,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
+from transformers import AutoModelForCausalLM
 
 from accelerate import PartialState
 from huggingface_hub import hf_hub_download
@@ -210,9 +211,14 @@ class PreTrainedModelWrapper(nn.Module):
                 )
 
                 # Wrap the pretrained model with the trained peft adapter
-                pretrained_model = PeftModel.from_pretrained(
-                    pretrained_model, pretrained_model_name_or_path, is_trainable=is_trainable, trust_remote_code=True
+                pretrained_model = AutoModelForCausalLM.from_pretrained(
+                    "StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL", 
+                    device_map="cuda", 
+                    torch_dtype="auto", 
+                    trust_remote_code=True, 
                 )
+
+                
                 logging.info("Trained peft adapter loaded")
             else:
                 pretrained_model = cls.transformers_parent_class.from_pretrained(
