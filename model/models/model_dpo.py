@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, pipeline
 from models.model_base import PreTrainedModelWrapper
 import sys
+import random 
+import re 
 
 class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
     """
@@ -402,7 +404,21 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
             Returns:
                 output_dict (dict): A dictionary containing the model predictions given input questions.
             """
-            output_dict = {"preds": []}
+
+            def extract_answer(generated_text):
+                lines = generated_text.split('\n')
+                
+                if len(lines) > 0 and len(lines[0]) > 0 and lines[0][1] in ['A', 'B', 'C', 'D']:
+                    return lines[0][1]  # Assuming the answer is the first character
+                
+                answer_pattern = re.compile(r"\s*\(?\s*([ABCD])\s*\)?\.?\s*")
+                for line in lines:
+                    match = answer_pattern.search(line)
+                    if match:
+                        return match.group(1)  # Returns the matched letter
+                
+                return random.choice(['A', 'B', 'C', 'D'])
+
 
             ########################################################################
             # TODO: Please implement the prediction step that generates the prediction of the given MCQA question
@@ -412,6 +428,7 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
             model=self.pretrained_model,
             tokenizer=tokenizer,
             )
+
             output_dict = {"preds": []}
             generation_args = {
                 "max_new_tokens": 512,
@@ -421,13 +438,12 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
             }
 
             for question in batch["question"]:
-                messages = [{"role": "user", "content": question + " "}]
+                messages = [{"role": "user", "content": question}]
                 result = pipe(messages, **generation_args)
                 generated_text = result[0]['generated_text']
                 print(generated_text)
-
-                correct_option = generated_text[1]
-                print(correct_option)
+                correct_option = extract_answer(generated_text)
+                print("Correct option is, ", correct_option)
                 output_dict["preds"].append(correct_option)
 
                 messages.pop()
