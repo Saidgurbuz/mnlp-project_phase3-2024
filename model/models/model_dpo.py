@@ -405,48 +405,47 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
                 output_dict (dict): A dictionary containing the model predictions given input questions.
             """
 
-            def extract_answer(generated_text):
-                lines = generated_text.split('\n')
-                
-                if len(lines) > 0 and len(lines[0]) > 0 and lines[0][1] in ['A', 'B', 'C', 'D']:
-                    return lines[0][1] 
-                
-                answer_pattern = re.compile(r"\s*\(?\s*([ABCD])\s*\)?\.?\s*")
-                for line in lines:
-                    match = answer_pattern.search(line)
-                    if match:
-                        return match.group(1)  # Returns the matched letter
-                
-                return random.choice(['A', 'B', 'C', 'D'])
-
-
             ########################################################################
             # TODO: Please implement the prediction step that generates the prediction of the given MCQA question
             # ======================================================================
-            pipe = pipeline(
-            "text-generation",
-            model=self.pretrained_model,
-            tokenizer=tokenizer,
-            )
-
+            
             output_dict = {"preds": []}
-            generation_args = {
-                "max_new_tokens": 512,
-                "return_full_text": False,
-                "temperature": 0.0,
-                "do_sample": False,
-            }
 
+            example_question = "Question: What is 2+2?\n\nOptions:\nA. 3\nB. 4\nC. 5\nD. 6\n\nAnswer:B"
+
+            # tokenize the questions
             for question in batch["question"]:
-                messages = [{"role": "user", "content": question}]
-                result = pipe(messages, **generation_args)
-                generated_text = result[0]['generated_text']
-                print(generated_text)
-                correct_option = extract_answer(generated_text)
-                print("Correct option is, ", correct_option)
-                output_dict["preds"].append(correct_option)
+                
+                formatted_input = f"The following are multiple choice questions (with answers): {example_question}\n\n{question}"
 
-                messages.pop()
+                input_ids = tokenizer(
+                    formatted_input,
+                    return_tensors="pt",
+                    padding=False,
+                    truncation=True,
+                    max_length=4000
+                )["input_ids"].to(self.device)           
+
+                flag = 0 
+
+                for _ in range(10):  # generate max 10 new tokens to try and find the answer
+                    outputs = self.pretrained_model(input_ids=input_ids)
+                    next_token_logits = outputs.logits[:, -1, :] 
+                    next_token_id = torch.argmax(next_token_logits, dim=-1)
+                    input_ids = torch.cat([input_ids, next_token_id.unsqueeze(-1)], dim=-1)  
+                    next_token = tokenizer.decode(next_token_id).strip()
+                    if next_token in ['A', 'B', 'C', 'D']:
+                        flag = 1
+                        break
+                
+                if flag:
+                    pred_token = tokenizer.decode(next_token_id).strip()
+                else:
+                    pred_token = "C"  # Fallback if no answer is generated
+                
+                flag = 0
+                print(pred_token)
+                output_dict["preds"].append(pred_token)
 
             return output_dict
             # You need to return one letter prediction for each question.
