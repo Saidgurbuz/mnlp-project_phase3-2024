@@ -409,7 +409,7 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
                 lines = generated_text.split('\n')
                 
                 if len(lines) > 0 and len(lines[0]) > 0 and lines[0][1] in ['A', 'B', 'C', 'D']:
-                    return lines[0][1]  # Assuming the answer is the first character
+                    return lines[0][1] 
                 
                 answer_pattern = re.compile(r"\s*\(?\s*([ABCD])\s*\)?\.?\s*")
                 for line in lines:
