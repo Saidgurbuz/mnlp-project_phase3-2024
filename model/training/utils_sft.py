@@ -61,14 +61,16 @@ def read_jsonl_files(file_paths):
                 data.append(json.loads(line))
     return data
 
-def transform_dataset(data):
+def transform_dataset(data, reasoning = False):
     questions = []
     answers = []
     
     for entry in data:
         questions.append(entry["question"])
-        answers.append(entry["answer"])
-    
+        if reasoning:
+            answers.append(entry["answer"] + entry["reasoning"]) #reasoning only for cot dataset
+        else:
+            answers.append(entry["answer"])
     return {
         "question": questions,
         "answer": answers,
@@ -88,7 +90,7 @@ def create_datasets(train_path, eval_path):
     # Train
     train_data = read_jsonl_files(train_path)
     
-    transformed_train_data = transform_dataset(train_data)
+    transformed_train_data = transform_dataset(train_data, reasoning = False) # True if we are using reasoning dataset
     train_data = Dataset.from_dict(transformed_train_data)
     train_data = train_data.map(
         create_conversation, 

@@ -61,7 +61,7 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
          
         self.device = device
         self.pretrained_model = self.pretrained_model.to(device)
-        self.pipe = False
+
         # check if there are enabled gradients in the model and disable gradient flow 
         for param in self.pretrained_model.parameters():
             if param.requires_grad:
@@ -423,7 +423,7 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
                     return_tensors="pt",
                     padding=False,
                     truncation=True,
-                    max_length=4000
+                    max_length=4096
                 )["input_ids"].to(self.device)           
 
                 flag = 0 
@@ -434,18 +434,17 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
                     next_token_id = torch.argmax(next_token_logits, dim=-1)
                     input_ids = torch.cat([input_ids, next_token_id.unsqueeze(-1)], dim=-1)  
                     next_token = tokenizer.decode(next_token_id).strip()
-                    if next_token in ['A', 'B', 'C', 'D']:
+                    print(next_token)  
+                    if next_token in ['A', 'B', 'C', 'D']: # TODO: check if it is case sensitive
                         flag = 1
                         break
                 
                 if flag:
-                    pred_token = tokenizer.decode(next_token_id).strip()
+                    output_dict["preds"].append(next_token)
                 else:
-                    pred_token = "C"  # Fallback if no answer is generated
+                    output_dict["preds"].append("C") # Fallback if no answer is found
                 
                 flag = 0
-                print(pred_token)
-                output_dict["preds"].append(pred_token)
 
             return output_dict
             # You need to return one letter prediction for each question.
