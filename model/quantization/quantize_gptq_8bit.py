@@ -1,4 +1,4 @@
-""" Quantize using PTQ - GPTQ, 4 bit """
+""" Quantize using PTQ - GPTQ """
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, GPTQConfig
 from peft import PeftModel
@@ -38,7 +38,7 @@ tokenizer.save_pretrained("../checkpoints/temp")
 
 # quantize model
 quantize_config = GPTQConfig(
-    bits=4,
+    bits=8,
     group_size=128,
     desc_act=False,
     dataset=dataset,
@@ -57,7 +57,7 @@ print(f"Model size in GB: {sum(p.numel() for p in model_gptq.parameters())*4/102
 
 # push to hub
 model_gptq.push_to_hub(
- repo_id="StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL-GPTQ-4bit",
+ repo_id="StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL-GPTQ-8bit",
 )
 
-tokenizer.push_to_hub("StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL-GPTQ-4bit")
+tokenizer.push_to_hub("StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL-GPTQ-8bit")
