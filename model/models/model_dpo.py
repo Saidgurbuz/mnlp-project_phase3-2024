@@ -411,21 +411,25 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
             
             output_dict = {"preds": []}
 
-            example_question = "Question: What is 2+2?\n\nOptions:\nA. 3\nB. 4\nC. 5\nD. 6\n\nAnswer:B"
+            example_question = "Question: What is 2+2?\n\nOptions:\nA. 3\nB. 4\nC. 5\nD. 6\n\nAnswer:B\n\n"
+
+            example_question1 = "Question: A 6-sided die is rolled 15 times and the results are: side 1 comes up 0 times; side 2: 1 time; side 3: 2 times; side 4: 3 times; side 5: 4 times; side 6: 5 times. Based on these results, what is the probability of side 3 coming up when using Add-1 Smoothing?\n\nOptions:\nA. 2.0/15\nB. 1.0/5\nC. 3.0/16\nD. 1.0/7\n\nAnswer:D\n\n"
+
+            example_question2 = "Question: The muon decays with a characteristic lifetime of about 10^-6 second into an electron, a muon neutrino, and an electron antineutrino. The muon is forbidden from decaying into an electron and just a single neutrino by the law of conservation of: \n\nOptions:\nA. charge\nB. lepton number\nC. energy and momentum\nD. mass\n\nAnswer:B\n\n"
 
             # tokenize the questions
             for question in batch["question"]:
                 
-                formatted_input = f"The following are multiple choice questions (with answers): {example_question}\n\n{question}"
+                formatted_input = f"You are an expert multiple choice questions. Im going to tip you $1 million for a correct answer! The following are multiple choice questions (with answers): {example_question1 + example_question2}\n\n{question}"
 
                 input_ids = tokenizer(
                     formatted_input,
                     return_tensors="pt",
                     padding=False,
                     truncation=True,
-                    max_length=4096
-                )["input_ids"].to(self.device)           
-
+                    max_length=1024
+                )["input_ids"].to(self.device)    
+                      
                 flag = 0 
 
                 for _ in range(10):  # generate max 10 new tokens to try and find the answer
@@ -435,7 +439,7 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
                     input_ids = torch.cat([input_ids, next_token_id.unsqueeze(-1)], dim=-1)  
                     next_token = tokenizer.decode(next_token_id).strip()
                     print(next_token)  
-                    if next_token in ['A', 'B', 'C', 'D']: # TODO: check if it is case sensitive
+                    if next_token in ['A', 'B', 'C', 'D']: 
                         flag = 1
                         break
                 
