@@ -404,31 +404,29 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
             Returns:
                 output_dict (dict): A dictionary containing the model predictions given input questions.
             """
-
             ########################################################################
             # TODO: Please implement the prediction step that generates the prediction of the given MCQA question
             # ======================================================================
             
             output_dict = {"preds": []}
 
-            example_question = "Question: What is 2+2?\n\nOptions:\nA. 3\nB. 4\nC. 5\nD. 6\n\nAnswer:B\n\n"
-
-            example_question1 = "Question: A 6-sided die is rolled 15 times and the results are: side 1 comes up 0 times; side 2: 1 time; side 3: 2 times; side 4: 3 times; side 5: 4 times; side 6: 5 times. Based on these results, what is the probability of side 3 coming up when using Add-1 Smoothing?\n\nOptions:\nA. 2.0/15\nB. 1.0/5\nC. 3.0/16\nD. 1.0/7\n\nAnswer:D\n\n"
-
-            example_question2 = "Question: The muon decays with a characteristic lifetime of about 10^-6 second into an electron, a muon neutrino, and an electron antineutrino. The muon is forbidden from decaying into an electron and just a single neutrino by the law of conservation of: \n\nOptions:\nA. charge\nB. lepton number\nC. energy and momentum\nD. mass\n\nAnswer:B\n\n"
+            example_questions = [
+                {'user': 'A certain pipelined RISC machine has 8 general-purpose registers R0, R1, . . . , R7 and supports the following operations:\nADD Rs1, Rs2, Rd (Add Rs1 to Rs2 and put the sum in Rd)\nMUL Rs1, Rs2, Rd (Multiply Rs1 by Rs2 and put the product in Rd)\nAn operation normally takes one cycle; however, an operation takes two cycles if it produces a result required by the immediately following operation in an operation sequence.\nConsider the expression AB + ABC + BC, where variables A, B, C are located in registers R0, R1, R2. If the contents of these three registers must not be modified, what is the minimum number of clock cycles required for an operation sequence that computes the value of AB + ABC + BC?\n\nOptions:\nA. 5\nB. 6\nC. 7\nD. 8\n\nAnswer:', 'assistant': 'B'},
+                {'user': 'Let V be the set of all real polynomials p(x). Let transformations T, S be defined on V by T:p(x) -> xp(x) and S:p(x) -> p''(x) = d/dx p(x), and interpret (ST)(p(x)) as S(T(p(x))). Which of the following is true?\n\nOptions:\nA. ST = 0\nB. ST = T\nC. ST = TS\nD. ST - TS is the identity map of V onto itself.\n\nAnswer:', 'assistant': "D"},
+                {'user': 'Which of the following represents an accurate statement concerning arthropods?\n\nOptions:\nA. They possess an exoskeleton composed primarily of peptidoglycan.\nB. They possess an open circulatory system with a dorsal heart.\nC. They are members of a biologically unsuccessful phylum incapable of exploiting diverse habitats and nutrition sources.\nD. They lack paired, jointed appendages.\n\nAnswer:', 'assistant': "B"}
+            ]
 
             # tokenize the questions
             for question in batch["question"]:
+                messages = [] 
+                for ex_question in example_questions:
+                    messages.append({'role': 'user', 'content': ex_question['user']})
+                    messages.append({'role': 'assistant', 'content': ex_question['assistant']})
                 
-                formatted_input = f"You are an expert multiple choice questions. Im going to tip you $1 million for a correct answer! The following are multiple choice questions (with answers): {example_question1 + example_question2}\n\n{question}"
+                messages.append({'role': 'user', 'content': question})
 
-                input_ids = tokenizer(
-                    formatted_input,
-                    return_tensors="pt",
-                    padding=False,
-                    truncation=True,
-                    max_length=1024
-                )["input_ids"].to(self.device)    
+
+                input_ids = tokenizer.apply_chat_template(messages, add_generation_promt=True, return_tensors="pt").to(self.device) 
                       
                 flag = 0 
 
