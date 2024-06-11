@@ -40,7 +40,7 @@ class NaiveANNSearch(ANNSearch):
                                                        total=len(sentence_files), desc="Loading RAG documents"):
             with open(sentence_file, "rb") as f:
                 self.sentences.append(pickle.load(f))
-            self.data.append(F.normalize(torch.load(data_file), dim=1))
+            self.data.append(F.normalize(torch.load(data_file).to(torch.float32), dim=1))
 
         # TODO DELETE THIS
         # self.sentences = self.sentences[:2]

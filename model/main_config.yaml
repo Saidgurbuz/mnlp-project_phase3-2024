@@ -13,6 +13,6 @@
     "topk": 3
     "ann_args":
       "ann_type": "naive"
-      "document_dir": "/scratch/izar/terekhov/data/rag_precomputed/"
+      "document_dir": "./documents"
 "quantized_model_args": null # Put any model arguments required to load your quantized model below
 
