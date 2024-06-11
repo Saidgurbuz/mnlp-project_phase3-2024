@@ -6,7 +6,6 @@ from datasets import load_dataset
 
 # Define model names
 model_names = [
-    "StefanKrsteski/Phi-3-mini-4k-instruct-sft-2bit",
     "StefanKrsteski/Phi-3-mini-4k-instruct-sft-3bit",
     "StefanKrsteski/Phi-3-mini-4k-instruct-sft-4bit",
     "StefanKrsteski/Phi-3-mini-4k-instruct-sft-8bit",
