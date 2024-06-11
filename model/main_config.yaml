@@ -1,15 +1,14 @@
 "team_name": "chatterbox" # Your team name
 "eval_method": ["mcqa"] # mcqa, reward, rag, quantiz
 "task_type": "causal_lm" # causal_lm, seq2seq
-"policy_model_path": "StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL" # Your path to the final checkpoint
+"policy_model_path": "StefanKrsteski/Phi-3-mini-4k-instruct-sft-8bit" # Your path to the final checkpoint
 "reference_model_path": "microsoft/Phi-3-mini-4k-instruct" # The repo id of your pretrained reference model
-"quantized_policy_model_path": "./checkpoints/quantization" # Your path to the final quantized checkpoint
+"quantized_policy_model_path": "StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL-GPTQ-4bit" # Your path to the final quantized checkpoint
 "rag_policy_model_path": "./checkpoints/best_model_rag/" # Your path to the final RAG checkpoint
-"test_data_path": "./datasets/mcqa_example.jsonl" # Your path to the test data
-"dpo_model_args": null # Put any model arguments required to load your DPO model below
+"test_data_path": "./datasets/mcqa_ai2arc_test.jsonl" # Your path to the test data
+"dpo_model_args": {'device_map': 'cuda'} # Put any model arguments required to load your DPO model below {'trust_remote_code': True}
 "rag_model_args": # Put any model arguments required to load your rag model below
   "encoder_model_path": "facebook/bart-large"
   "retriever_model_path": "./checkpoints/rag_retriever"
   "document_dir": "./data/documents"
-"quantized_model_args": null # Put any model arguments required to load your quantized model below
-
+"quantized_model_args": {'device_map': 'cuda'} # Put any model arguments required to load your quantized model below
