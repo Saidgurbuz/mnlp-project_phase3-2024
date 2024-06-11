@@ -1,4 +1,4 @@
-""" Quantize using PTQ - GPTQ """
+""" Quantize using PTQ - GPTQ, 8 bit """
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, GPTQConfig
 from peft import PeftModel
@@ -24,7 +24,7 @@ data_paths = ["../datasets/mcqa_mmlu_train.jsonl", "../datasets/mcqa_ai2arc_trai
 dataset = read_jsonl_files(data_paths)
 
 # set paths
-model_id = "StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL"
+model_id = "StefanKrsteski/Phi-3-mini-4k-instruct-sft"
 base_model = "microsoft/Phi-3-mini-4k-instruct"
 
 # load peft model + tokenizer
@@ -57,7 +57,7 @@ print(f"Model size in GB: {sum(p.numel() for p in model_gptq.parameters())*4/102
 
 # push to hub
 model_gptq.push_to_hub(
- repo_id="StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL-GPTQ-8bit",
+ repo_id="StefanKrsteski/Phi-3-mini-4k-instruct-sft-8bit",
 )
 
-tokenizer.push_to_hub("StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL-GPTQ-8bit")
+tokenizer.push_to_hub("StefanKrsteski/Phi-3-mini-4k-instruct-sft-8bit")
