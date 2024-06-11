@@ -61,7 +61,7 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
          
         self.device = device
         self.pretrained_model = self.pretrained_model.to(device)
-        self.pipe = False
+
         # check if there are enabled gradients in the model and disable gradient flow 
         for param in self.pretrained_model.parameters():
             if param.requires_grad:
@@ -404,49 +404,49 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
             Returns:
                 output_dict (dict): A dictionary containing the model predictions given input questions.
             """
-
-            def extract_answer(generated_text):
-                lines = generated_text.split('\n')
-                
-                if len(lines) > 0 and len(lines[0]) > 0 and lines[0][1] in ['A', 'B', 'C', 'D']:
-                    return lines[0][1] 
-                
-                answer_pattern = re.compile(r"\s*\(?\s*([ABCD])\s*\)?\.?\s*")
-                for line in lines:
-                    match = answer_pattern.search(line)
-                    if match:
-                        return match.group(1)  # Returns the matched letter
-                
-                return random.choice(['A', 'B', 'C', 'D'])
-
-
             ########################################################################
             # TODO: Please implement the prediction step that generates the prediction of the given MCQA question
             # ======================================================================
-            pipe = pipeline(
-            "text-generation",
-            model=self.pretrained_model,
-            tokenizer=tokenizer,
-            )
-
+            
             output_dict = {"preds": []}
-            generation_args = {
-                "max_new_tokens": 512,
-                "return_full_text": False,
-                "temperature": 0.0,
-                "do_sample": False,
-            }
 
+            example_questions = [
+                {'user': 'A certain pipelined RISC machine has 8 general-purpose registers R0, R1, . . . , R7 and supports the following operations:\nADD Rs1, Rs2, Rd (Add Rs1 to Rs2 and put the sum in Rd)\nMUL Rs1, Rs2, Rd (Multiply Rs1 by Rs2 and put the product in Rd)\nAn operation normally takes one cycle; however, an operation takes two cycles if it produces a result required by the immediately following operation in an operation sequence.\nConsider the expression AB + ABC + BC, where variables A, B, C are located in registers R0, R1, R2. If the contents of these three registers must not be modified, what is the minimum number of clock cycles required for an operation sequence that computes the value of AB + ABC + BC?\n\nOptions:\nA. 5\nB. 6\nC. 7\nD. 8\n\nAnswer:', 'assistant': 'B'},
+                {'user': 'Let V be the set of all real polynomials p(x). Let transformations T, S be defined on V by T:p(x) -> xp(x) and S:p(x) -> p''(x) = d/dx p(x), and interpret (ST)(p(x)) as S(T(p(x))). Which of the following is true?\n\nOptions:\nA. ST = 0\nB. ST = T\nC. ST = TS\nD. ST - TS is the identity map of V onto itself.\n\nAnswer:', 'assistant': "D"},
+                {'user': 'Which of the following represents an accurate statement concerning arthropods?\n\nOptions:\nA. They possess an exoskeleton composed primarily of peptidoglycan.\nB. They possess an open circulatory system with a dorsal heart.\nC. They are members of a biologically unsuccessful phylum incapable of exploiting diverse habitats and nutrition sources.\nD. They lack paired, jointed appendages.\n\nAnswer:', 'assistant': "B"}
+            ]
+
+            # tokenize the questions
             for question in batch["question"]:
-                messages = [{"role": "user", "content": question}]
-                result = pipe(messages, **generation_args)
-                generated_text = result[0]['generated_text']
-                print(generated_text)
-                correct_option = extract_answer(generated_text)
-                print("Correct option is, ", correct_option)
-                output_dict["preds"].append(correct_option)
+                messages = [] 
+                for ex_question in example_questions:
+                    messages.append({'role': 'user', 'content': ex_question['user']})
+                    messages.append({'role': 'assistant', 'content': ex_question['assistant']})
+                
+                messages.append({'role': 'user', 'content': question})
 
-                messages.pop()
+
+                input_ids = tokenizer.apply_chat_template(messages, add_generation_promt=True, return_tensors="pt").to(self.device) 
+                      
+                flag = 0 
+
+                for _ in range(10):  # generate max 10 new tokens to try and find the answer
+                    outputs = self.pretrained_model(input_ids=input_ids)
+                    next_token_logits = outputs.logits[:, -1, :] 
+                    next_token_id = torch.argmax(next_token_logits, dim=-1)
+                    input_ids = torch.cat([input_ids, next_token_id.unsqueeze(-1)], dim=-1)  
+                    next_token = tokenizer.decode(next_token_id).strip()
+                    print(next_token)  
+                    if next_token in ['A', 'B', 'C', 'D']: 
+                        flag = 1
+                        break
+                
+                if flag:
+                    output_dict["preds"].append(next_token)
+                else:
+                    output_dict["preds"].append("C") # Fallback if no answer is found
+                
+                flag = 0
 
             return output_dict
             # You need to return one letter prediction for each question.
