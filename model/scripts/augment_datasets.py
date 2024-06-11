@@ -15,6 +15,8 @@ model = AutoModelForCausalLM.from_pretrained(
     trust_remote_code=True,
 )
 
+print("Model loading done.")
+
 pipe = pipeline(
     "text-generation",
     model=model,
@@ -42,13 +44,16 @@ def transform_dataset_to_messages(data):
     for entry in data:
         message = {
             "role": "user",
-            "content": f"{entry['question']} {entry['answer']}. Explain why this is the correct choice, step by step by reasoning through each option. At the end of your reasoning provide the correct option, so you should end strictly with: 'The correct option is: {entry['answer']}'\n"
+            "content": f"{entry['question']} {entry['answer']}. Explain why {entry['answer']} is the correct answer, step by step by reasoning through each option. At the end of your reasoning provide the correct option and end strictly with: 'The correct option is: {entry['answer']}'\n"
         }
         messages.append(message)
     return messages
 
 train_data = read_jsonl_and_sample("./datasets/mcqa_mmlu_train.jsonl")
+print("Data loading done.")
+
 messages = transform_dataset_to_messages(train_data)
+print("Data transformation to messages done.")
 
 def generate_and_append_reasoning(messages, output_file_path):
     with open(output_file_path, 'w', encoding='utf-8') as f:
