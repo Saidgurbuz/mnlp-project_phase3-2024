@@ -4,11 +4,13 @@ import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, pipeline
 import tqdm
 from models.model_dpo import AutoDPOModelForCausalLM
-
+import faiss
+import numpy as np
 from abc import ABC, abstractmethod
 import random
 from pathlib import Path
 import pickle
+from transformers import AutoModel, AutoTokenizer
 
 
 class ANNSearch(ABC):
@@ -18,10 +20,49 @@ class ANNSearch(ABC):
 
     @staticmethod
     def create(ann_type, **kwargs):
-        if ann_type == "naive":
+        if ann_type == "faiss":
+            return FaissANNSearch(**kwargs)
+        elif ann_type == "naive":
             return NaiveANNSearch(**kwargs)
         else:
             raise ValueError(f"Unknown ANNSearch type: {ann_type}")
+
+
+
+class FaissANNSearch(ANNSearch):
+    def __init__(self, document_dir):
+        self.index = None
+        self.sentences = []
+        self.embeddings = []
+
+        sentence_files = sorted(list(Path(document_dir).glob("sentences*.pkl")))
+        data_files = sorted(list(Path(document_dir).glob("*.pt")))
+        assert len(sentence_files) == len(data_files), "Mismatch between sentence and data files"
+
+        for sentence_file, data_file in tqdm.tqdm(zip(sentence_files, data_files), total=len(sentence_files)):
+            with open(sentence_file, "rb") as f:
+                self.sentences.extend(pickle.load(f))
+            loaded_embeddings = torch.load(data_file).numpy()
+            if not loaded_embeddings.flags['C_CONTIGUOUS']:
+                loaded_embeddings = np.ascontiguousarray(loaded_embeddings)
+            self.embeddings.append(loaded_embeddings)
+
+        self.embeddings = np.vstack(self.embeddings).astype(np.float32)
+        if not self.embeddings.flags['C_CONTIGUOUS']:
+            self.embeddings = np.ascontiguousarray(self.embeddings)
+
+        # Initialize the FAISS index
+        self.index = faiss.IndexFlatL2(self.embeddings.shape[1])
+        self.index.add(self.embeddings)
+
+    def get_top_k(self, batch_query, k=1):
+        batch_query_np = batch_query.cpu().numpy()
+        if not batch_query_np.flags['C_CONTIGUOUS']:
+            batch_query_np = np.ascontiguousarray(batch_query_np)
+            
+        distances, indices = self.index.search(batch_query_np, k)
+        top_sentences = [[self.sentences[idx] for idx in indices[i]] for i in range(len(batch_query))]
+        return distances, top_sentences
 
 
 class NaiveANNSearch(ANNSearch):
@@ -42,27 +83,29 @@ class NaiveANNSearch(ANNSearch):
                 self.sentences.append(pickle.load(f))
             self.data.append(F.normalize(torch.load(data_file).to(torch.float32), dim=1))
 
-        # TODO DELETE THIS
-        # self.sentences = self.sentences[:2]
-        # self.data = self.data[:2]
-
         for i, data in enumerate(self.data):
             self.chunk_indices.extend([(i, j) for j in range(data.shape[0])])
 
     def get_top_k(self, batch_query, k=1):
         cosine_sims = []
-        batch_query = F.normalize(batch_query, dim=1)
-        batch_query_cuda = batch_query.cuda()
+        batch_query = F.normalize(batch_query, dim=1)  # Normalize batch_query
+        if torch.cuda.is_available():
+            batch_query_cuda = batch_query.cuda()
+        else:
+            batch_query_cuda = batch_query
+
         for sentences, data in tqdm.tqdm(zip(self.sentences, self.data), total=len(self.sentences),
-                                         desc="Computing cosine similarities"):
-            data_cuda = data.cuda()
+                                        desc="Computing cosine similarities"):
+            if torch.cuda.is_available():
+                data_cuda = data.cuda()
+            else:
+                data_cuda = data
             cosine_sims.append(batch_query_cuda @ data_cuda.T)
-            del data_cuda
+            if torch.cuda.is_available():
+                del data_cuda
 
         cosine_sims = torch.cat(cosine_sims, dim=1)
         topk_vals, topk_inds = torch.topk(cosine_sims, k=k, dim=1)
-
-        # print(f"Topk vals: {topk_vals}")
 
         top_sentences = []
         for i in range(topk_inds.shape[0]):
@@ -81,8 +124,8 @@ class AutoRAGModelForCausalLM(AutoDPOModelForCausalLM):
     lm_head_namings = ["lm_head", "embed_out"]
 
     @staticmethod
-    def apply_facts_template(facts):
-        return "Here is some information that may or may not be useful for the task:\n\n" + "\n\n".join(facts)
+    def apply_facts_template(facts): #LlamaIndex prompt
+        return "We have provided context information below." + "\n---------------------\n".join(facts) + "\n---------------------\n" + "Given this information, please answer the questions."  
 
     ####################################################################################
     # TODO (Optional): Please put any required arguments for your custom module here
@@ -105,6 +148,10 @@ class AutoRAGModelForCausalLM(AutoDPOModelForCausalLM):
 
         self.ann = ANNSearch.create(**ann_args)
         self.topk = topk
+
+        self.embedding_model = AutoModel.from_pretrained("Alibaba-NLP/gte-large-en-v1.5", trust_remote_code=True)
+        self.embedding_model.eval()
+        self.embeddings_tokenizer = AutoTokenizer.from_pretrained("Alibaba-NLP/gte-large-en-v1.5")
 
     def prediction_step_mcqa(self, batch, tokenizer):
         """
@@ -143,27 +190,35 @@ class AutoRAGModelForCausalLM(AutoDPOModelForCausalLM):
                 'assistant': "B"}
         ]
 
+        # Omit the `Question:` part from the batch, omit first 9 characters from each question 
         # find the embeddings
-        tokens = tokenizer(batch["question"], return_tensors="pt", padding=True, truncation=True).to(self.device)
-        outputs = self.pretrained_model(**tokens, output_hidden_states=True)
-        embeddings = outputs.hidden_states[-1][:, -1, :]
-        topk_vals, top_sentences = self.ann.get_top_k(embeddings, k=self.topk)
+        with torch.no_grad():
+            enc_tokens = self.embeddings_tokenizer([q[9:] for q in batch["question"]], return_tensors='pt', padding=True, truncation=True)
+            outputs = self.embedding_model(**enc_tokens)
+            embeddings = outputs.last_hidden_state[:, 0]
+
+        topk_vals, top_sentences = self.ann.get_top_k(embeddings, k=self.topk)        
+        # delete outputs and embeddings to free up mem 
+        del outputs
+        del embeddings
+        torch.cuda.empty_cache()
 
         # tokenize the questions
         for qi, question in enumerate(batch["question"]):
-            for num_facts in reversed(range(1, self.topk + 1)):
-                messages = []
-                for ex_question in example_questions:
-                    messages.append({'role': 'user', 'content': ex_question['user']})
-                    messages.append({'role': 'assistant', 'content': ex_question['assistant']})
+            messages = []
+            for ex_question in example_questions:
+                messages.append({'role': 'user', 'content': ex_question['user']})
+                messages.append({'role': 'assistant', 'content': ex_question['assistant']})
 
-                extended_question = self.apply_facts_template(top_sentences[qi][:num_facts]) + "\n\n" + question
-                messages.append({'role': 'user', 'content': extended_question})
+            # append documents only if cosine similarity is above the threshold
+            effective_docs = [s for i, s in enumerate(top_sentences[qi]) if topk_vals[qi][i] >= 0.69]
+            if effective_docs:
+                extended_question = self.apply_facts_template(effective_docs) + "\n\n" + question
+            else:
+                extended_question = question
 
-                input_ids = tokenizer.apply_chat_template(messages, add_generation_promt=True, return_tensors="pt").to(
-                    self.device)
-                if input_ids.shape[1] < 4000:
-                    break
+            messages.append({'role': 'user', 'content': extended_question})
+            input_ids = tokenizer.apply_chat_template(messages, add_generation_promt=True, return_tensors="pt").to(self.device)
 
             flag = 0
 
