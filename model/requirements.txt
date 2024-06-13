@@ -11,3 +11,5 @@ bitsandbytes
 peft
 scikit_learn
 trl
+auto-gptq
+faiss_gpu

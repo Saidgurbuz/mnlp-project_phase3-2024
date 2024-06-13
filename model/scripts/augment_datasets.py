@@ -1,7 +1,6 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import json
-from datasets import Dataset, load_dataset
 from tqdm import tqdm
 
 torch.random.manual_seed(0)
@@ -49,7 +48,7 @@ def transform_dataset_to_messages(data):
         messages.append(message)
     return messages
 
-train_data = read_jsonl_and_sample("./datasets/mcqa_mmlu_train.jsonl")
+train_data = read_jsonl_and_sample("../../data/mcqa_mmlu_train.jsonl")
 print("Data loading done.")
 
 messages = transform_dataset_to_messages(train_data)

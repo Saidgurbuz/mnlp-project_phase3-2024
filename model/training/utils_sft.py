@@ -11,10 +11,8 @@ from datasets import load_dataset
 import numpy as np
 from enum import Enum
 from datasets import Dataset, concatenate_datasets
-from transformers import PreTrainedTokenizer
 
 import torch
-from datasets import DatasetDict, load_dataset, load_from_disk
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,

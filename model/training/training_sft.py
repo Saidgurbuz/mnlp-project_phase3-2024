@@ -4,9 +4,8 @@ from typing import Optional, List
 import torch.nn.functional as F
 from transformers import set_seed, TrainingArguments
 import torch
-import sys
 from utils_sft import create_and_prepare_model, create_datasets
-from trl import DPOConfig, DPOTrainer, SFTTrainer, SFTConfig
+from trl import SFTTrainer, SFTConfig
 
 # Define and parse arguments.
 @dataclass
@@ -76,7 +75,7 @@ class ModelArguments:
 @dataclass
 class DataArguments:
     train_dataset_names: List[str] = field(
-        default_factory=lambda: ["../datasets/mcqa_ai2arc_train.jsonl","../datasets/mcqa_mmlu_train.jsonl"],#"data/dpo/ultrafeedback/train_ultrafeedback.jsonl"], # NOTE: Add datasets here!
+        default_factory=lambda: ["../..data/mcqa_ai2arc_train.jsonl","../..data/mcqa_mmlu_train.jsonl"],#"data/dpo/ultrafeedback/train_ultrafeedback.jsonl"], # NOTE: Add datasets here!
     )
 
     eval_dataset_names: List[str] = field(

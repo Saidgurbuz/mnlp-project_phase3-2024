@@ -20,7 +20,7 @@ def read_jsonl_files(file_paths):
     return data
 
 # load dataset
-data_paths = ["../datasets/mcqa_mmlu_train.jsonl", "../datasets/mcqa_ai2arc_train.jsonl"]
+data_paths = ["../../data/mcqa_mmlu_train.jsonl", "../../data/mcqa_ai2arc_train.jsonl"]
 dataset = read_jsonl_files(data_paths)
 
 # set paths
