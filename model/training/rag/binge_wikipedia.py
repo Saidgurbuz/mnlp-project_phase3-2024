@@ -25,10 +25,9 @@ def good_sentence(s):
     return len(s) > 0 and 'may refer to:' not in s
 
 def precompute_rag_custom_data(args, tokenizer, model, out_dir):
-    # Load the arXiv dataset instead of Wikipedia
-    arxiv = datasets.load_dataset("thewordsmiths/wiki_stem", split='train[71:100%]', # ayoubkirouane/arxiv-physics ['answer'] field, thewordsmiths/wiki_stem", AlaaElhilo/Wikipedia_ComputerScience, ArtifactAI/arxiv-cs-ml-instruct-tune-50k
+    arxiv = datasets.load_dataset("ayoubkirouane/arxiv-physics", split='train', # ayoubkirouane/arxiv-physics, legacy-datasets/wikipedia, AlaaElhilo/Wikipedia_ComputerScience, ArtifactAI/arxiv-cs-ml-instruct-tune-50k
                                   cache_dir=args.scratch_dir / ".cache/huggingface/datasets",
-                                  trust_remote_code=True, ignore_verifications=True, data_dir="subsample_619014chunks")
+                                  trust_remote_code=True, ignore_verifications=True)
     
     arxiv = arxiv.select(range(0, len(arxiv)))
     nltk.download('punkt')
@@ -37,7 +36,7 @@ def precompute_rag_custom_data(args, tokenizer, model, out_dir):
 
     for i, entry in tqdm.tqdm(enumerate(arxiv), total=len(arxiv), desc="Processing entries"):
 
-        sentences = nltk.sent_tokenize(entry['text'])
+        sentences = nltk.sent_tokenize(entry['answer'])
 
         sentences = [s for s in sentences]
         
