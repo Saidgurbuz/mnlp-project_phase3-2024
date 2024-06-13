@@ -436,7 +436,7 @@ class AutoDPOModelForCausalLM(PreTrainedModelWrapper):
                     next_token_id = torch.argmax(next_token_logits, dim=-1)
                     input_ids = torch.cat([input_ids, next_token_id.unsqueeze(-1)], dim=-1)  
                     next_token = tokenizer.decode(next_token_id).strip()
-                    print(next_token)  
+                    # print(next_token)  
                     if next_token in ['A', 'B', 'C', 'D']: 
                         flag = 1
                         break

@@ -88,7 +88,6 @@ class DPOModelEvaluator():
         """Get the predictions of a student's DPO model for a batch of multiple-choice questions.
 
         Args:
-
             model (`PreTrainedModelWrapper`): A student's DPO model.
             tokenier (`PreTrainedTokenizerBase`): A tokenizer of the student's DPO or Reference model.
             batch (`dict` of `list`): A dictrionary containing the input MCQA questions data for the DPO model.
