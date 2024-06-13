@@ -118,6 +118,8 @@ class PreTrainedModelWrapper(nn.Module):
         Args:
             pretrained_model_name_or_path (`str` or `transformers.PreTrainedModel`):
                 The path to the pretrained model or its name.
+            is_rag (`bool`, *optional*):
+                Whether the model uses RAG. If it does, we will load our RAG wrapper.
             *model_args (`list`, *optional*)):
                 Additional positional arguments passed along to the underlying model's
                 `from_pretrained` method.
@@ -130,6 +132,9 @@ class PreTrainedModelWrapper(nn.Module):
                 `peft` library.
         """
         if kwargs is not None:
+            is_rag = kwargs.pop("is_rag", False)
+            rag_args = kwargs.pop("rag_args", {}) if is_rag else {}
+
             peft_config = kwargs.pop("peft_config", None)
             reward_adapter = kwargs.pop("reward_adapter", None)
             reward_adapter_name = kwargs.pop("reward_adapter_name", "reward_adapter")
@@ -137,6 +142,9 @@ class PreTrainedModelWrapper(nn.Module):
             trl_model_args, pretrained_kwargs, peft_quantization_kwargs = cls._split_kwargs(kwargs)
             token = pretrained_kwargs.get("token", None)
         else:
+            is_rag = False
+            rag_args = {}
+
             peft_config = None
             is_trainable = False
             trl_model_args = {}
@@ -273,7 +281,11 @@ class PreTrainedModelWrapper(nn.Module):
             multi_adapter_args = {"supports_rm_adapter": False}
 
         # Then, create the full model by instantiating the wrapper class
-        model = cls(pretrained_model, **multi_adapter_args, **trl_model_args)
+        if is_rag:
+            from models.model_rag import AutoRAGModelForCausalLM
+            model = AutoRAGModelForCausalLM(pretrained_model, **rag_args, **multi_adapter_args, **trl_model_args)
+        else:
+            model = cls(pretrained_model, **multi_adapter_args, **trl_model_args)
 
         # if resume_training, load the state_dict again - this is ok since the
         # state_dict is removed from the model after loading it.
