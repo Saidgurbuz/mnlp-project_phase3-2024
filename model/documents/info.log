@@ -1,7 +1,0 @@
-Output directory: data/custom_rag/20240612_193112
-Arguments:
-Namespace(scratch_dir=PosixPath('.'), output_dir=PosixPath('data/custom_rag'), max_fact_len=256, n_sentences_per_fact=3, n_facts_per_batch=16, n_facts_per_saved_chunk=640)
-Model Arguments:
-ModelArguments(model_name_or_path='StefanKrsteski/Phi-3-mini-4k-instruct-DPO-EPFL', chat_template_format='none', gradient_checkpointing=True, lora_alpha=32, lora_dropout=0.1, lora_r=64, lora_target_modules='q_proj,k_proj,v_proj,o_proj,down_proj,up_proj,gate_proj', use_nested_quant=False, bnb_4bit_compute_dtype='float16', bnb_4bit_quant_storage_dtype='uint8', bnb_4bit_quant_type='nf4', use_flash_attn=False, use_peft_lora=True, use_8bit_quantization=False, use_4bit_quantization=False, use_reentrant=True, use_unsloth=False)
-Data Arguments:
-DataArguments(train_dataset_names=['../datasets/mcqa_ai2arc_train.jsonl', '../datasets/mcqa_mmlu_train.jsonl'], eval_dataset_names=['../datasets/mcqa_example.jsonl'], max_seq_length=1024, append_concat_token=False, add_special_tokens=False, splits='train,test')
